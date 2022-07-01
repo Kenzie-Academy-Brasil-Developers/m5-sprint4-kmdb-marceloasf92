@@ -19,13 +19,21 @@ class MovieSerializer(serializers.Serializer):
     def create(self, validated_data: dict):
         genre_data = validated_data.pop("genres")
 
-        # genre = Genre.objects.get_or_create(**genre_data)[0]
-
         movie = Movie.objects.create(**validated_data)
 
-        for only_charac in genre_data:
-            genres = Genre.objects.get_or_create(
-                **only_charac)[0]
+        for only_genre in genre_data:
+            genres = Genre.objects.get(
+                **only_genre)[0]
             movie.genres.add(genres)
 
         return movie
+
+    def update(self, instance: Movie, validated_data: dict) -> Movie:
+        non_editable_keys = ("duration", "premiere","classification", "synopsis", "genres",)
+        for key, value in validated_data.items():
+            if key in non_editable_keys:
+                raise KeyError(f"You can not update {key} property.")
+            setattr(instance, key, value)
+        instance.save()
+
+        return instance
