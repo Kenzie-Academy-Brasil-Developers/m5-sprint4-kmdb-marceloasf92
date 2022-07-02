@@ -4,7 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView, Response, status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-# from rest_framework.generics import GenericAPIView
+from rest_framework.pagination import PageNumberPagination
 
 from users.serializers import LoginSerializer, RegisterSerializer
 
@@ -13,15 +13,15 @@ from users.models import User
 from users.permissions import IsAdmin
 
 
-class UserView(APIView):
+class UserView(APIView, PageNumberPagination):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
-        # print(request.user.is_superuser)
         user = User.objects.all()
-        serializer = RegisterSerializer(user, many=True)
-        return Response(serializer.data)
+        result_page = self.paginate_queryset(user, request, self)
+        serializer = RegisterSerializer(result_page, many=True)
+        return self.get_paginated_response(serializer.data)
 
 
 class UserViewDetail(APIView):
@@ -34,7 +34,7 @@ class UserViewDetail(APIView):
             serializer = RegisterSerializer(movie)
             return Response(serializer.data)
         except User.DoesNotExist:
-            return Response({"message": "Movie not found."}, status.HTTP_404_NOT_FOUND)
+            return Response({"message": "User not found."}, status.HTTP_404_NOT_FOUND)
 
 
 class RegisterView(APIView):
@@ -62,7 +62,6 @@ class LoginView(APIView):
         if user:
             token, _ = Token.objects.get_or_create(user=user)
             # token = Token.objects.get_or_create(user=user)
-            print(token)
 
             return Response({"token": token.key})
 

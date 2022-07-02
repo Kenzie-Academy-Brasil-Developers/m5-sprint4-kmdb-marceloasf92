@@ -3,21 +3,23 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView, Response, status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Movie
 from .serializers import MovieSerializer
 
-from users.permissions import IsAdmin
+from users.permissions import IsAdminOrReadyOnly
 
 
-class MovieView(APIView):
+class MovieView(APIView, PageNumberPagination):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadyOnly]
+
     def get(self, request):
         movies = Movie.objects.all()
-        serializer = MovieSerializer(movies, many=True)
-        return Response(serializer.data)
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAdmin]
+        result_page = self.paginate_queryset(movies, request, self)
+        serializer = MovieSerializer(result_page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = MovieSerializer(data=request.data)
@@ -28,7 +30,7 @@ class MovieView(APIView):
 
 class MovieViewDetail(APIView):
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly, IsAdmin]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadyOnly]
 
     def get(self, request, movies_id):
         try:
@@ -51,10 +53,9 @@ class MovieViewDetail(APIView):
 
         try:
             serializer.save()
-        except KeyError as err:
+        except KeyError:
             return Response(
-                {"message": str(err).replace("'", "")
-                 }, status.HTTP_422_UNPROCESSABLE_ENTITY
+                KeyError, status.HTTP_422_UNPROCESSABLE_ENTITY
             )
 
         return Response(serializer.data)
